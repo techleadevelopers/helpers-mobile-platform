@@ -41,6 +41,7 @@ export function ZooHelpHeader({ onBack }: ZooHelpHeaderProps = {}) {
         <View style={styles.logoRow}>
           <Image source={{ uri: ZOOHELP_HEADER_LOGO }} style={styles.logoIcon} contentFit="contain" />
           <Text style={[styles.logoText, { color: colors.primary }]}>Helpers</Text>
+           
         </View>
       </View>
       <View style={styles.headerSideSpacer} />
@@ -55,19 +56,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 1,
     gap: 10,
     borderBottomWidth: 1,
-    minHeight: 60,
+    minHeight: 50,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 33, height: 33, alignItems: 'center', justifyContent: 'center', bottom: 2, },
   headerSideSpacer: { width: 40, height: 40 },
   logoCenter: {
     position: 'absolute',
     left: -20,
     right: 0,
-    bottom: 13,
-    height: 36,
+    bottom: 4,
+    height: 41,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -77,19 +78,33 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   logoIcon: {
-    width: 30.5,
-    height: 30.5,
+    width: 32.5,
+    height: 25.5,
     borderRadius: 8,
   },
   logoText: {
     marginLeft: -1,
-    top: 2,
-    fontSize: 22.5,
+    top: 1,
+    fontSize: 17.5,
     fontFamily: 'Montserrat_700Bold',
     letterSpacing: -1,
     lineHeight: 28,
+    marginRight: 6,
     textShadowColor: 'rgba(46,125,50,0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+  communityLabel: {
+  fontSize: 11,
+  fontWeight: '300',
+  letterSpacing: 1.04,
+  marginTop: 2,
+  color: '#a3a3a3',
+  textShadowColor: 'rgba(0, 0, 0, 0.06)',
+  textShadowOffset: {
+    width: 0,
+    height: 1,
+  },
+  textShadowRadius: 2,
+},
 });
