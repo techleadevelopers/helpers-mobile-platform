@@ -174,7 +174,7 @@ export function PublicUserHeader({
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 14, paddingBottom: 0, marginBottom: 0 },
+  header: { paddingHorizontal: 14, paddingBottom: 0, marginBottom: 20 },
   topBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 12, paddingHorizontal: 4 },
   backButton: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F6F8F5' },
   iconButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.86)' },
