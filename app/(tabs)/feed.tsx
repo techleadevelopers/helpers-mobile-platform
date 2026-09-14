@@ -1043,14 +1043,18 @@ const styles = StyleSheet.create({
     paddingRight: 8.4,
   },
   logoText: {
-    fontSize: 24.15,
+    marginLeft: -1,
+    top: 1,
+    fontSize: 21.5,
     fontFamily: 'Montserrat_700Bold',
-    letterSpacing: -1.05,
-    lineHeight: 32.55,
+    letterSpacing: -1,
+    lineHeight: 28,
+    marginRight: 6,
     textShadowColor: 'rgba(46,125,50,0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+ 
   tagline: {
     fontSize: 11.55,
     fontFamily: 'Montserrat_400Regular',
