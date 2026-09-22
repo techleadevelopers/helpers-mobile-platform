@@ -189,6 +189,14 @@ export default function ONGsScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
+  async function handleFollowOng(ongId: string) {
+    try {
+      await toggleFollowOng(ongId);
+    } catch {
+      Alert.alert('Não foi possível seguir', 'Entre na sua conta e tente novamente.');
+    }
+  }
+
   const list = MOCK_ONGS.filter((o) => {
     const q = search.trim().toLowerCase();
     const mQ = !q || o.name.toLowerCase().includes(q) || o.cause.toLowerCase().includes(q) || o.city.toLowerCase().includes(q);
@@ -247,7 +255,7 @@ export default function ONGsScreen() {
             item={item}
             index={index}
             following={followedOngs.includes(item.id)}
-            onFollow={() => toggleFollowOng(item.id)}
+            onFollow={() => handleFollowOng(item.id)}
             onPress={() => router.push(`/ong/${item.id}`)}
           />
         )}

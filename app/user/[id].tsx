@@ -122,7 +122,7 @@ export default function PublicUserProfileScreen() {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const router = useRouter();
-  const { posts, user, followedUsers, toggleFollowUser } = useApp();
+  const { posts, user, followedUsers, setFollowUser } = useApp();
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
   const [userSearch, setUserSearch] = useState('');
   const [userSearchFocused, setUserSearchFocused] = useState(false);
@@ -313,10 +313,9 @@ export default function PublicUserProfileScreen() {
 
     setFollowLoading(true);
     const wasFollowing = following;
-    toggleFollowUser(author.id);
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const response = await createZooHelpApi()?.followUser(author.id).catch(() => null);
-    if (response) {
+    try {
+      const response = await setFollowUser(author.id, !following);
       setRemoteProfile((current) => current
         ? {
             ...current,
@@ -324,8 +323,7 @@ export default function PublicUserProfileScreen() {
             followersCount: response.followersCount,
           }
         : current);
-    } else {
-      toggleFollowUser(author.id);
+    } catch {
       setRemoteProfile((current) => current
         ? {
             ...current,

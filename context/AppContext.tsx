@@ -165,8 +165,9 @@ interface AppContextType {
   completeOnboarding: () => Promise<void>;
   toggleLike: (postId: string) => void;
   fetchLikedPosts: () => Promise<Post[]>;
-  toggleFollowOng: (ongId: string) => void;
-  toggleFollowUser: (userId: string) => void;
+  toggleFollowOng: (ongId: string) => Promise<void>;
+  setFollowUser: (userId: string, following: boolean) => Promise<{ following: boolean; followersCount: number }>;
+  toggleFollowUser: (userId: string) => Promise<{ following: boolean; followersCount: number }>;
   deletePost: (postId: string) => Promise<void>;
   addPost: (post: Post) => Promise<Post>;
   refreshPosts: () => Promise<void>;
@@ -233,6 +234,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const feedFailureCountRef = useRef(0);
   const deletedPostIdsRef = useRef<Set<string>>(new Set());
   const pendingLikePostIdsRef = useRef<Set<string>>(new Set());
+  const pendingFollowUserIdsRef = useRef<Set<string>>(new Set());
+  const pendingFollowOngIdsRef = useRef<Set<string>>(new Set());
   const justPublishedRef = useRef<{ postId: string; expiresAt: number } | null>(null);
 
   const api = useMemo(
@@ -713,21 +716,75 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  function toggleFollowOng(ongId: string) {
+  async function toggleFollowOng(ongId: string) {
+    if (!api || !user?.id) throw new Error('Entre para seguir uma ONG');
+    if (pendingFollowOngIdsRef.current.has(ongId)) return;
+    pendingFollowOngIdsRef.current.add(ongId);
+    const wasFollowing = followedOngs.includes(ongId);
+    const nextFollowing = !wasFollowing;
     setFollowedOngs((prev) => {
-      const next = prev.includes(ongId) ? prev.filter((id) => id !== ongId) : [...prev, ongId];
-      AsyncStorage.setItem('followedOngs', JSON.stringify(next));
+      const next = nextFollowing ? Array.from(new Set([...prev, ongId])) : prev.filter((id) => id !== ongId);
+      AsyncStorage.setItem('followedOngs', JSON.stringify(next)).catch(() => {});
       return next;
     });
-    api?.followOng(ongId).catch(() => {});
+    try {
+      const response = await api.setFollowOng(ongId, nextFollowing);
+      if (response.following !== nextFollowing) {
+        setFollowedOngs((prev) => {
+          const next = response.following ? Array.from(new Set([...prev, ongId])) : prev.filter((id) => id !== ongId);
+          AsyncStorage.setItem('followedOngs', JSON.stringify(next)).catch(() => {});
+          return next;
+        });
+      }
+    } catch (error) {
+      setFollowedOngs((prev) => {
+        const next = wasFollowing ? Array.from(new Set([...prev, ongId])) : prev.filter((id) => id !== ongId);
+        AsyncStorage.setItem('followedOngs', JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+      throw error;
+    } finally {
+      pendingFollowOngIdsRef.current.delete(ongId);
+    }
   }
 
-  function toggleFollowUser(userId: string) {
+  async function setFollowUser(userId: string, nextFollowing: boolean) {
+    if (!api || !user?.id) throw new Error('Entre para seguir este usuário');
+    if (userId === user.id) throw new Error('Você não pode seguir seu próprio perfil');
+    if (pendingFollowUserIdsRef.current.has(userId)) {
+      return { following: followedUsers.includes(userId), followersCount: 0 };
+    }
+    pendingFollowUserIdsRef.current.add(userId);
+    const wasFollowing = followedUsers.includes(userId);
     setFollowedUsers((prev) => {
-      const next = prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId];
-      AsyncStorage.setItem('followedUsers', JSON.stringify(next));
+      const next = nextFollowing ? Array.from(new Set([...prev, userId])) : prev.filter((id) => id !== userId);
+      AsyncStorage.setItem('followedUsers', JSON.stringify(next)).catch(() => {});
       return next;
     });
+    try {
+      const response = nextFollowing
+        ? await api.followUser(userId)
+        : await api.unfollowUser(userId);
+      setFollowedUsers((prev) => {
+        const next = response.following ? Array.from(new Set([...prev, userId])) : prev.filter((id) => id !== userId);
+        AsyncStorage.setItem('followedUsers', JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+      return { following: response.following, followersCount: response.followersCount };
+    } catch (error) {
+      setFollowedUsers((prev) => {
+        const next = wasFollowing ? Array.from(new Set([...prev, userId])) : prev.filter((id) => id !== userId);
+        AsyncStorage.setItem('followedUsers', JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+      throw error;
+    } finally {
+      pendingFollowUserIdsRef.current.delete(userId);
+    }
+  }
+
+  async function toggleFollowUser(userId: string) {
+    return setFollowUser(userId, !followedUsers.includes(userId));
   }
 
   async function markPostDeletedLocally(postId: string) {
@@ -1110,6 +1167,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toggleLike,
         fetchLikedPosts,
         toggleFollowOng,
+        setFollowUser,
         toggleFollowUser,
         deletePost,
         addPost,

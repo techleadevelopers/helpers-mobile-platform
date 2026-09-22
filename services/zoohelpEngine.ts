@@ -664,6 +664,13 @@ export class ZooHelpEngine {
     });
   }
 
+  setFollowOng(id: string, following: boolean) {
+    return this.request<{ ongId: string; following: boolean; followersCount: number }>(
+      `/v1/ongs/${encodeURIComponent(id)}/follow`,
+      { method: following ? "PUT" : "DELETE" },
+    );
+  }
+
   chatRooms(input: { postId?: string } = {}) {
     const params = new URLSearchParams();
     if (input.postId) params.set("post_id", input.postId);
@@ -792,6 +799,13 @@ export class ZooHelpEngine {
     return this.request<{ userId: string; following: boolean; followersCount: number }>(
       `/v1/users/${encodeURIComponent(id)}/follow`,
       { method: "POST" },
+    );
+  }
+
+  unfollowUser(id: string) {
+    return this.request<{ userId: string; following: boolean; followersCount: number }>(
+      `/v1/users/${encodeURIComponent(id)}/follow`,
+      { method: "DELETE" },
     );
   }
 

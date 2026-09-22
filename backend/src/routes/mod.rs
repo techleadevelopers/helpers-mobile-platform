@@ -198,7 +198,12 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/maps/place-details", get(maps::place_details))
         .route("/v1/ongs", get(ongs::list_ongs))
         .route("/v1/ongs/:id", get(ongs::get_ong))
-        .route("/v1/ongs/:id/follow", post(ongs::follow_ong))
+        .route(
+            "/v1/ongs/:id/follow",
+            post(ongs::follow_ong)
+                .put(ongs::follow_ong_explicit)
+                .delete(ongs::unfollow_ong),
+        )
         .route("/v1/donations/intents", post(donations::create_intent))
         .route(
             "/v1/contributions/maintenance/intents",

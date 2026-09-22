@@ -1,0 +1,721 @@
+AGORA INICIE UMA NOVA AUDITORIA COMPLETA DO PROJETO.
+
+IMPORTANTE:
+
+O trabalho anterior JÁ FOI EXECUTADO.
+
+NÃO assuma que o projeto está perfeito porque os testes anteriores passaram.
+
+NÃO repita cegamente o trabalho anterior.
+
+Agora quero uma NOVA VARREDURA COMPLETA E INDEPENDENTE de todo o sistema atual, considerando o estado REAL do código depois das alterações anteriores.
+
+OBJETIVO:
+
+Encontrar e corrigir gaps, inconsistências, regressões, gargalos, problemas de integração, problemas de concorrência, problemas de persistência, problemas de estado no frontend, problemas de segurança e qualquer funcionalidade parcialmente implementada ou que funcione somente em condições específicas.
+
+A auditoria deve cobrir:
+
+BACKEND
+FRONTEND / MOBILE
+BANCO DE DADOS
+API
+AUTENTICAÇÃO
+AUTORIZAÇÃO
+CACHE
+WEBSOCKETS
+NOTIFICAÇÕES
+PUSH
+WORKERS
+JOBS
+FEED
+SOCIAL
+FOLLOW / UNFOLLOW
+USERS
+PROFILE
+RESCUE
+CHAT
+UPLOADS
+PAGAMENTOS
+TOKENS
+SESSÃO
+RECOVERY
+LGPD / SEGURANÇA
+ERROR HANDLING
+LOGS
+OBSERVABILIDADE
+PERFORMANCE
+CONCORRÊNCIA
+INTEGRIDADE DOS DADOS
+MIGRATIONS
+TESTES
+BUILD
+TYPECHECK
+CONFIGURAÇÃO DE PRODUÇÃO
+E TODAS AS OUTRAS FUNCIONALIDADES EXISTENTES NO PROJETO.
+
+==================================================
+
+1. NÃO CONFIE SOMENTE NOS TESTES EXISTENTES
+   ==================================================
+
+Leia o código atual e trace os fluxos reais.
+
+Um teste passando não significa que a funcionalidade esteja realmente correta.
+
+Procure também:
+
+* código morto;
+* endpoints sem consumidor;
+* telas sem backend correspondente;
+* endpoints sem tratamento no frontend;
+* DTOs inconsistentes;
+* campos diferentes entre frontend/backend;
+* estados locais divergentes;
+* queries incompletas;
+* validações ausentes;
+* erros silenciosos;
+* catch que engole exceções;
+* race conditions;
+* operações não idempotentes;
+* duplicidade;
+* problemas de paginação;
+* problemas de ordenação;
+* problemas de cache;
+* problemas de invalidação;
+* problemas de retry;
+* problemas de timeout;
+* problemas de reconexão;
+* memory leaks;
+* listeners não removidos;
+* subscriptions não encerradas;
+* workers presos;
+* jobs duplicados;
+* recursos que não são liberados;
+* transações incompletas;
+* operações que deveriam ser atômicas mas não são.
+
+==================================================
+2. MAPEAR TODAS AS FUNCIONALIDADES EXISTENTES
+=============================================
+
+Primeiro faça um inventário real do sistema.
+
+Não invente funcionalidades.
+
+Extraia do código:
+
+BACKEND:
+
+* módulos;
+* controllers;
+* services;
+* repositories;
+* entities/models;
+* DTOs;
+* guards;
+* middleware;
+* interceptors;
+* workers;
+* queues;
+* cron/jobs;
+* gateways;
+* WebSockets;
+* integrações externas;
+* endpoints;
+* migrations.
+
+FRONTEND/MOBILE:
+
+* telas;
+* rotas;
+* componentes;
+* hooks;
+* contexts;
+* stores;
+* services;
+* API clients;
+* queries;
+* mutations;
+* cache;
+* listeners;
+* push;
+* deep links;
+* autenticação;
+* navegação.
+
+BANCO:
+
+* tabelas;
+* relações;
+* índices;
+* constraints;
+* unique keys;
+* foreign keys;
+* migrations;
+* possíveis inconsistências de schema.
+
+Depois compare as três camadas:
+
+FRONTEND
+↓
+API
+↓
+BACKEND
+↓
+DATABASE
+
+Procure qualquer GAP entre elas.
+
+==================================================
+3. AUDITAR CADA FLUXO DE PONTA A PONTA
+======================================
+
+Para cada funcionalidade existente, verificar:
+
+UI
+↓
+ação do usuário
+↓
+request
+↓
+autenticação
+↓
+autorização
+↓
+controller
+↓
+service
+↓
+database/external service
+↓
+response
+↓
+frontend state
+↓
+cache
+↓
+UI atualizada
+
+Não considere uma funcionalidade correta apenas porque o endpoint responde 200.
+
+Verifique o resultado real na interface e no banco.
+
+==================================================
+4. FOLLOW / UNFOLLOW — AUDITORIA OBRIGATÓRIA
+============================================
+
+"Seguir" é uma relação GLOBAL do usuário.
+
+Não deve existir uma regra diferente para cada tela.
+
+Verificar todos os pontos existentes onde Follow/Unfollow aparece:
+
+* Feed;
+* Post/Card;
+* Users;
+* Search;
+* Profile;
+* Followers;
+* Following;
+* recomendações;
+* qualquer outro componente.
+
+Se A segue B em qualquer lugar:
+
+A -> B = FOLLOWING
+
+Todas as telas devem reconhecer a mesma relação.
+
+Auditar:
+
+* endpoint;
+* service;
+* banco;
+* unique constraint;
+* concorrência;
+* contadores;
+* cache;
+* estado local;
+* optimistic update;
+* rollback;
+* refetch;
+* invalidação;
+* persistência após logout/login.
+
+Testar:
+
+Follow pelo Feed → verificar Users/Profile.
+
+Follow pelo Users → verificar Feed/Profile.
+
+Unfollow pelo Profile → verificar Feed/Users.
+
+Duplo clique → não duplicar.
+
+Requests simultâneos → não duplicar.
+
+Falha de API → UI não pode ficar em estado falso.
+
+Outro usuário C → não pode enxergar A como seguidor de B.
+
+==================================================
+5. CONCORRÊNCIA E INTEGRIDADE
+=============================
+
+Procure operações vulneráveis a race conditions.
+
+Especialmente:
+
+* Follow;
+* Unfollow;
+* likes;
+* comentários;
+* notificações;
+* mensagens;
+* criação de posts;
+* rescue;
+* uploads;
+* pagamentos;
+* tokens;
+* jobs;
+* workers.
+
+Não confiar somente no frontend.
+
+Sempre que necessário, a proteção deve existir no backend/database.
+
+Verificar:
+
+* UNIQUE;
+* FK;
+* transaction;
+* atomic update;
+* upsert;
+* locking quando necessário;
+* idempotency;
+* retry seguro.
+
+==================================================
+6. PERFORMANCE E GARGALOS
+=========================
+
+Analise o sistema procurando:
+
+* N+1 queries;
+* queries sem índice;
+* SELECT excessivo;
+* joins desnecessários;
+* payloads gigantes;
+* endpoints lentos;
+* loops sobre grandes datasets;
+* processamento síncrono que deveria ser assíncrono;
+* chamadas externas bloqueantes;
+* múltiplos requests desnecessários;
+* refetch excessivo;
+* renders excessivos;
+* listeners duplicados;
+* memory leaks;
+* processamento duplicado.
+
+Identifique gargalos reais através do código e, quando possível, através de testes.
+
+Não faça otimização especulativa.
+
+Só altere quando houver evidência ou risco técnico concreto.
+
+==================================================
+7. TESTE DE STRESS / CARGA
+==========================
+
+Quero testar o sistema REAL, mas com segurança.
+
+NÃO execute carga destrutiva contra produção.
+
+Antes de qualquer teste de carga:
+
+* identificar ambiente;
+* identificar endpoints seguros;
+* identificar operações somente leitura;
+* verificar limites;
+* verificar rate limits;
+* verificar logs;
+* verificar impacto.
+
+Para produção, priorizar testes controlados e não destrutivos.
+
+Exemplos:
+
+GET/feed
+GET/users
+GET/profile
+GET/search
+GET/notifications
+
+Para operações mutáveis:
+
+usar ambiente de staging/teste sempre que possível.
+
+Não gerar milhares de:
+
+* usuários;
+* posts;
+* follows;
+* mensagens;
+* uploads;
+* notificações;
+* pagamentos;
+
+em produção.
+
+Se produção for o único ambiente disponível, faça somente testes de carga pequenos, progressivos e reversíveis, documentando exatamente o que foi executado.
+
+Não derrubar o serviço.
+
+==================================================
+8. TESTE PROGRESSIVO
+====================
+
+Quando possível:
+
+1x
+5x
+10x
+25x
+50x
+100x
+
+Aumentar somente se o sistema permanecer saudável.
+
+Medir:
+
+* latency;
+* p50;
+* p95;
+* p99;
+* throughput;
+* error rate;
+* CPU;
+* memória;
+* database connections;
+* query latency;
+* queue backlog;
+* worker health;
+* websocket connections;
+* external API failures.
+
+Não inventar métricas.
+
+Registrar somente aquilo que realmente foi medido.
+
+==================================================
+9. SEGURANÇA
+============
+
+Auditar:
+
+* JWT;
+* refresh token;
+* expiration;
+* revocation;
+* RBAC;
+* ownership;
+* IDOR;
+* acesso entre usuários;
+* endpoints administrativos;
+* upload;
+* validação de arquivos;
+* payload validation;
+* SQL/ORM injection;
+* XSS;
+* exposição de dados;
+* logs contendo secrets;
+* tokens expostos;
+* CORS;
+* rate limiting;
+* brute force;
+* permissões.
+
+Testar especialmente:
+
+Usuário A tentando acessar/modificar recurso pertencente a B.
+
+Usuário comum tentando acessar endpoint administrativo.
+
+Usuário não autenticado tentando acessar recurso protegido.
+
+Não criar exploits destrutivos.
+
+==================================================
+10. RESILIÊNCIA
+===============
+
+Simular falhas controladas quando possível:
+
+* API externa indisponível;
+* timeout;
+* database temporariamente indisponível;
+* worker parado;
+* websocket desconectado;
+* push indisponível;
+* request duplicado;
+* request interrompido;
+* token expirado.
+
+Verificar se o sistema:
+
+* recupera;
+* faz retry quando apropriado;
+* não duplica operações;
+* não perde dados;
+* não deixa estado inconsistente;
+* informa erro corretamente ao usuário.
+
+==================================================
+11. FRONTEND / MOBILE
+=====================
+
+Auditar:
+
+* navegação;
+* estados de loading;
+* empty states;
+* error states;
+* retry;
+* offline;
+* reconnect;
+* cache;
+* optimistic updates;
+* rollback;
+* listeners;
+* subscriptions;
+* push;
+* deep links;
+* sessão;
+* logout;
+* refresh token;
+* background/foreground;
+* app fechado;
+* múltiplas telas abertas;
+* componentes desmontados.
+
+Verificar especialmente se uma ação feita em uma tela aparece corretamente nas outras.
+
+==================================================
+12. DATABASE
+============
+
+Auditar:
+
+* migrations;
+* schema atual;
+* migrations incompletas;
+* constraints;
+* índices;
+* foreign keys;
+* cascade;
+* dados órfãos;
+* duplicidade;
+* nullable fields;
+* defaults;
+* timestamps;
+* transações.
+
+Verificar se o schema utilizado pelos testes corresponde ao schema real utilizado pela aplicação.
+
+Se houver migration quebrada, identificar a causa real.
+
+Não simplesmente ignorar testes que falham por infraestrutura.
+
+==================================================
+13. TESTES
+==========
+
+Executar:
+
+* unit;
+* integration;
+* API;
+* database;
+* frontend;
+* typecheck;
+* lint quando disponível;
+* build.
+
+Mas também criar/executar testes direcionados para os gaps encontrados.
+
+Não considerar:
+
+"20 testes passaram"
+
+como prova de que:
+
+"o sistema está correto".
+
+Separar claramente:
+
+PASSOU
+FALHOU POR BUG
+FALHOU POR INFRAESTRUTURA
+NÃO FOI POSSÍVEL TESTAR
+
+==================================================
+14. PRODUÇÃO
+============
+
+Não modificar produção de forma destrutiva.
+
+Antes de qualquer alteração:
+
+* verificar ambiente;
+* verificar configuração;
+* verificar backup/reversibilidade quando aplicável;
+* verificar impacto.
+
+Não alterar:
+
+* dados reais;
+* usuários reais;
+* pagamentos reais;
+* tokens reais;
+
+apenas para testar.
+
+Testes de produção devem ser pequenos, seguros, controlados e reversíveis.
+
+==================================================
+15. CORREÇÕES
+=============
+
+Depois da auditoria:
+
+NÃO faça refatoração gigante sem necessidade.
+
+Para cada problema encontrado:
+
+1. identificar causa;
+2. explicar impacto;
+3. corrigir no ponto correto;
+4. preservar contratos existentes;
+5. testar;
+6. verificar regressão.
+
+Prioridade:
+
+P0 — segurança / perda de dados / corrupção / indisponibilidade
+
+P1 — funcionalidade quebrada / inconsistência de dados
+
+P2 — gargalo relevante / problema de concorrência / resiliência
+
+P3 — melhorias menores / qualidade de código
+
+Não criar mudanças apenas para "embelezar" o código.
+
+==================================================
+16. REGRESSÃO COMPLETA
+======================
+
+Depois das correções, executar novamente os principais fluxos:
+
+AUTH
+LOGIN
+LOGOUT
+TOKEN
+PROFILE
+USERS
+FEED
+POST
+FOLLOW
+UNFOLLOW
+FOLLOWERS
+FOLLOWING
+COMMENTS
+LIKES
+NOTIFICATIONS
+PUSH
+CHAT
+RESCUE
+UPLOAD
+SEARCH
+WEBSOCKET
+WORKERS
+JOBS
+RECOVERY
+E TODAS AS DEMAIS FUNCIONALIDADES EXISTENTES.
+
+Não assumir que uma correção isolada não causou regressão.
+
+==================================================
+17. CRITÉRIO FINAL
+==================
+
+Só finalizar quando tiver sido feita uma varredura real do projeto atual.
+
+Quero um relatório final objetivo contendo:
+
+1. FUNCIONALIDADES AUDITADAS
+
+2. BUGS ENCONTRADOS
+
+3. GAPS ENCONTRADOS
+
+4. GARGALOS ENCONTRADOS
+
+5. PROBLEMAS DE SEGURANÇA
+
+6. PROBLEMAS DE CONCORRÊNCIA
+
+7. PROBLEMAS DE DATABASE
+
+8. PROBLEMAS FRONTEND
+
+9. PROBLEMAS BACKEND
+
+10. PROBLEMAS DE INTEGRAÇÃO
+
+11. ALTERAÇÕES REALIZADAS
+
+12. TESTES EXECUTADOS
+
+13. TESTES QUE FALHARAM E POR QUÊ
+
+14. TESTES DE STRESS REALIZADOS
+
+    * ambiente;
+    * carga;
+    * endpoints;
+    * duração;
+    * métricas observadas;
+    * erros.
+
+15. O QUE NÃO FOI POSSÍVEL TESTAR
+
+16. RISCOS REMANESCENTES
+
+17. ESTADO FINAL DO SISTEMA
+
+IMPORTANTE:
+
+Não invente resultados.
+
+Não diga que algo foi testado se não foi.
+
+Não diga que uma funcionalidade está funcionando apenas porque o código parece correto.
+
+Quando possível, valide o fluxo completo:
+
+USUÁRIO
+→ FRONTEND
+→ API
+→ BACKEND
+→ DATABASE
+→ RESPONSE
+→ ESTADO FRONTEND
+→ USUÁRIO
+
+A prioridade é encontrar problemas reais que ainda estejam escondidos no sistema atual, corrigir os problemas encontrados e garantir que as correções não criem novas regressões.
+
+NÃO pare no primeiro problema encontrado.
+
+Continue a auditoria até percorrer todo o sistema atual.

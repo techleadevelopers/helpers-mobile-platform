@@ -1,3 +1,17 @@
+-- Support tables historically lived only in the runtime compatibility schema.
+-- Create the parent table here as well so a clean database can run the
+-- versioned migrations before the compatibility bridge executes.
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  subject text NOT NULL CHECK (char_length(subject) BETWEEN 1 AND 160),
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'pending', 'resolved', 'closed')),
+  category text NOT NULL DEFAULT 'OTHER',
+  severity text NOT NULL DEFAULT 'MEDIUM',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 ALTER TABLE support_tickets
   ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(id) ON DELETE SET NULL;
 

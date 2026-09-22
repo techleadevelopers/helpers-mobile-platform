@@ -490,42 +490,38 @@ pub async fn verify_email(
         return Err(ApiError::Validation("token is required".into()));
     }
 
-    let result = sqlx::query(
+    let mut tx = state.db.begin().await?;
+    let token_row = sqlx::query(
         r#"
-        UPDATE users
-        SET verified = true
-        WHERE id = (
-          SELECT user_id
-          FROM email_verification_tokens
-          WHERE token = $1
-            AND used_at IS NULL
-            AND expires_at > now()
-        )
-        RETURNING id
+        UPDATE email_verification_tokens
+        SET used_at = now()
+        WHERE token = $1
+          AND used_at IS NULL
+          AND expires_at > now()
+        RETURNING user_id
         "#,
     )
     .bind(&query.token)
-    .fetch_optional(&state.db)
-    .await;
+    .fetch_optional(&mut *tx)
+    .await?;
 
-    match result {
-        Ok(Some(row)) => {
-            let user_id: Uuid = row.get("id");
-            let _ = sqlx::query(
-                "UPDATE email_verification_tokens SET used_at = now() WHERE token = $1",
-            )
-            .bind(&query.token)
-            .execute(&state.db)
-            .await;
-            tracing::info!(%user_id, "email verified");
-            Ok(Json(ActionQueuedResponse { status: "verified" }))
-        }
-        Ok(None) => Err(ApiError::NotFound),
-        Err(error) => {
-            tracing::error!(?error, "email verification failed");
-            Err(ApiError::Internal)
-        }
+    let Some(token_row) = token_row else {
+        return Err(ApiError::NotFound);
+    };
+    let user_id: Uuid = token_row.get("user_id");
+    let user_row = sqlx::query(
+        "UPDATE users SET verified = true WHERE id = $1 AND deleted_at IS NULL RETURNING id",
+    )
+    .bind(user_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    if user_row.is_none() {
+        return Err(ApiError::NotFound);
     }
+    tx.commit().await?;
+    tracing::info!(%user_id, "email verified");
+    Ok(Json(ActionQueuedResponse { status: "verified" }))
 }
 
 pub async fn me(
@@ -778,6 +774,7 @@ async fn find_user_by_email(
                cep, street, number, complement, neighborhood, city, state
         FROM users
         WHERE email = $1
+          AND deleted_at IS NULL
         "#,
     )
     .bind(email)
@@ -794,6 +791,7 @@ async fn find_user_by_id(state: &AppState, id: Uuid) -> Result<Option<UserRecord
                cep, street, number, complement, neighborhood, city, state
         FROM users
         WHERE id = $1
+          AND deleted_at IS NULL
         "#,
     )
     .bind(id)
@@ -1040,7 +1038,11 @@ async fn issue_auth_response(
     .bind(record.id)
     .bind(expires_at)
     .execute(&state.db)
-    .await;
+    .await
+    .map_err(|error| {
+        tracing::error!(?error, "refresh token persistence failed");
+        ApiError::Internal
+    })?;
 
     let access_token = auth_service::issue_access_token(
         &state.config,

@@ -84,8 +84,12 @@ export default function OngProfileScreen() {
     ]).start();
   }, []);
 
-  function handleFollow() {
-    toggleFollowOng(ongId);
+  async function handleFollow() {
+    try {
+      await toggleFollowOng(ongId);
+    } catch {
+      Alert.alert('Não foi possível seguir', 'Entre na sua conta e tente novamente.');
+    }
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }
 
