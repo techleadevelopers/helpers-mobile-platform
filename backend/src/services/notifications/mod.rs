@@ -218,6 +218,8 @@ pub async fn upsert_persistent_subscription(
           lng = EXCLUDED.lng,
           radius_km = EXCLUDED.radius_km,
           critical_alerts = EXCLUDED.critical_alerts,
+          invalidated_at = NULL,
+          last_delivery_error = NULL,
           updated_at = now()
         "#,
     )
@@ -231,9 +233,10 @@ pub async fn upsert_persistent_subscription(
     .execute(db)
     .await?;
 
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM push_subscriptions")
-        .fetch_one(db)
-        .await?;
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM push_subscriptions WHERE invalidated_at IS NULL")
+            .fetch_one(db)
+            .await?;
     Ok(count as usize)
 }
 

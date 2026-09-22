@@ -1,0 +1,494 @@
+Quero fazer uma AUDITORIA DE PRODUÇÃO + HARDENING COMPLETO do ZooHelp/Helpin.
+
+IMPORTANTE:
+NÃO quero apenas um relatório de auditoria.
+
+Quero que você:
+1. audite;
+2. encontre cada gap;
+3. corrija o gap diretamente no código;
+4. rode os testes;
+5. crie/ajuste testes quando necessário;
+6. valide contra a infraestrutura CLOUD real;
+7. simule falhas e recovery;
+8. continue procurando novos gaps;
+9. corrija os novos gaps encontrados;
+10. só finalize quando cada fluxo crítico estiver comprovadamente funcionando ou quando existir uma limitação externa que realmente impeça a validação.
+
+NÃO faça mudanças cosméticas.
+NÃO reescreva arquitetura sem necessidade.
+NÃO substitua implementação real por mock/fake apenas para fazer teste passar.
+NÃO considere “compila” como “está funcionando”.
+NÃO considere teste unitário isolado como prova de funcionamento em produção.
+
+==================================================
+OBJETIVO PRINCIPAL
+==================================================
+
+Validar o sistema inteiro contra a infraestrutura CLOUD real, principalmente os fluxos que precisam funcionar quando o aplicativo está FECHADO/EM BACKGROUND.
+
+Prioridade máxima:
+
+A) NOTIFICAÇÕES PUSH EXTERNAS
+B) RESGATE / EMERGENCY FANOUT
+C) APP FECHADO / BACKGROUND
+D) WORKERS
+E) PERSISTÊNCIA
+F) RECOVERY APÓS RESTART
+G) CHAT/WEBSOCKET
+H) GEOLOCALIZAÇÃO
+I) AUTENTICAÇÃO/SEGURANÇA
+J) FEED E CONTRATOS MOBILE/BACKEND
+
+==================================================
+1. PRIMEIRO: ENTENDA O SISTEMA INTEIRO
+==================================================
+
+Antes de alterar qualquer coisa:
+
+- leia README e documentação;
+- leia backend Rust;
+- leia workers;
+- leia mobile;
+- leia migrations;
+- leia Docker/infra;
+- leia configuração de produção;
+- identifique todas as integrações externas;
+- identifique todos os workers;
+- identifique todas as filas/tabelas de jobs;
+- identifique FCM/APNs/push token;
+- identifique WebSocket/NATS;
+- identifique PostgreSQL/Redis;
+- identifique Cloudinary;
+- identifique endpoints de rescue;
+- identifique o fluxo completo desde criação do post até entrega da notificação.
+
+Monte mentalmente o fluxo:
+
+Mobile
+-> API
+-> PostgreSQL
+-> rescue fanout
+-> notification job
+-> worker
+-> FCM/APNs
+-> dispositivo
+-> app fechado/background
+-> deep link
+-> usuário responde "Estou indo"
+-> backend
+-> atualização operacional.
+
+Depois AUDITE esse fluxo ponta a ponta.
+
+==================================================
+2. TESTE REAL DE PUSH
+==================================================
+
+Não basta verificar que existe código de push.
+
+Descubra:
+
+- onde o push token é registrado;
+- onde é persistido;
+- se token expirado é removido;
+- se existe deduplicação;
+- se existe retry;
+- se existe backoff;
+- se existe dead-letter;
+- se existe timeout;
+- se existe status de delivery;
+- se existe tratamento de erro FCM/APNs;
+- se existe diferença Android/iOS;
+- se o push funciona com app aberto;
+- background;
+- totalmente fechado;
+- dispositivo bloqueado;
+- após reiniciar o aparelho;
+- após token mudar.
+
+VALIDAR CONTRA O SERVIÇO EXTERNO REAL quando as credenciais/infraestrutura estiverem disponíveis.
+
+Se a implementação estiver incompleta:
+IMPLEMENTE.
+
+Se estiver parcialmente implementada:
+COMPLETE.
+
+Se existir mock onde deveria existir integração real:
+SUBSTITUA pelo fluxo real apropriado.
+
+==================================================
+3. TESTE CRÍTICO: APP FECHADO
+==================================================
+
+Esse é um dos testes mais importantes.
+
+Simule:
+
+DISPOSITIVO A:
+- usuário autorizado;
+- localização conhecida;
+- push token registrado;
+- aplicativo completamente fechado.
+
+DISPOSITIVO B:
+- cria um post de emergência;
+- fornece latitude/longitude;
+- dispara rescue fanout.
+
+Verifique:
+
+emergency post
+-> rescue_fanout_state
+-> seleção geográfica
+-> notification event
+-> push job
+-> worker
+-> FCM/APNs
+-> dispositivo A
+-> notificação recebida
+-> deep link correto
+-> abertura do rescue correto.
+
+Não aceitar "o endpoint respondeu 200" como evidência suficiente.
+
+Precisamos comprovar o caminho completo.
+
+==================================================
+4. TESTAR FANOUT PROGRESSIVO
+==================================================
+
+Validar as fases reais:
+
+0.3 km
+0.7 km
+1.0 km
+3.0 km
+escalation para ONG/especialistas.
+
+Verificar:
+
+- não notificar pessoas fora do raio;
+- não duplicar destinatários;
+- respeitar trust;
+- respeitar role;
+- respeitar cooldown/fatigue;
+- respeitar subscription radius;
+- respeitar localização;
+- registrar tentativa;
+- registrar sucesso/falha;
+- avançar fase corretamente;
+- parar expansão quando alguém confirmar "Estou indo".
+
+Criar testes automatizados para esses casos.
+
+==================================================
+5. FAILURE TESTING
+==================================================
+
+Não teste apenas o caminho feliz.
+
+Simule:
+
+- PostgreSQL indisponível;
+- Redis indisponível;
+- NATS indisponível;
+- FCM indisponível;
+- APNs indisponível;
+- timeout;
+- worker morto;
+- worker reiniciado;
+- API reiniciada;
+- processo morto durante processamento;
+- push duplicado;
+- token inválido;
+- token expirado;
+- job parcialmente processado;
+- usuário removido;
+- usuário banido;
+- rescue criado duas vezes;
+- dois workers tentando processar o mesmo job.
+
+Depois corrija qualquer comportamento incorreto.
+
+==================================================
+6. DURABILIDADE
+==================================================
+
+O sistema NÃO pode depender de memória RAM para estado crítico.
+
+Verifique especialmente:
+
+- rescue state;
+- rescue responses;
+- notification events;
+- push delivery jobs;
+- fanout attempts;
+- escalation attempts;
+- chat history.
+
+Se uma informação crítica desaparecer depois de:
+
+API restart
+ou
+worker restart
+
+isso é um GAP.
+
+CORRIJA.
+
+Use PostgreSQL como fonte de verdade onde apropriado.
+
+==================================================
+7. IDEMPOTÊNCIA
+==================================================
+
+Todo fluxo crítico deve suportar retry sem criar efeitos duplicados.
+
+Auditar:
+
+- criação de rescue;
+- fanout;
+- push;
+- response "Estou indo";
+- notifications;
+- chat;
+- jobs.
+
+Se houver possibilidade de:
+
+retry -> duplicação
+
+implementar idempotency/deduplication adequada.
+
+==================================================
+8. WORKERS
+==================================================
+
+Auditar todos os workers.
+
+Para cada worker verificar:
+
+- locking;
+- concorrência;
+- retry;
+- backoff;
+- timeout;
+- dead-letter;
+- observabilidade;
+- graceful shutdown;
+- recovery;
+- idempotência.
+
+Não assumir que row locking sozinho resolve todos os problemas.
+
+Criar testes de concorrência quando necessário.
+
+==================================================
+9. SEGURANÇA
+==================================================
+
+Auditar:
+
+- JWT;
+- refresh tokens;
+- revogação;
+- autorização;
+- roles;
+- endpoints de rescue;
+- endpoints de chat;
+- endpoints de ONG;
+- reports;
+- rate limiting;
+- abuso;
+- localização;
+- exposição de dados;
+- permissões administrativas.
+
+Encontrou vulnerabilidade:
+CORRIJA.
+
+Não apenas documente.
+
+==================================================
+10. MOBILE/BACKEND CONTRACT
+==================================================
+
+Validar o contrato real entre mobile e backend:
+
+- auth;
+- feed;
+- posts;
+- emergency;
+- latitude/longitude;
+- rescue response;
+- notifications;
+- chat;
+- ONG;
+- media.
+
+Se backend e mobile discordarem:
+CORRIGIR os dois lados de forma compatível.
+
+Depois executar:
+
+pnpm --filter zoohelp-mobile run typecheck
+
+e todos os testes relevantes do backend.
+
+==================================================
+11. OBSERVABILIDADE
+==================================================
+
+Para cada fluxo crítico precisamos conseguir responder:
+
+- o evento foi criado?
+- o job foi criado?
+- quem recebeu?
+- foi enviado?
+- falhou?
+- por quê?
+- houve retry?
+- quando?
+- terminou?
+- qual rescue está ativo?
+- quem confirmou "Estou indo"?
+
+Se não houver observabilidade suficiente:
+IMPLEMENTAR.
+
+Não quero logs genéricos.
+Quero correlation IDs / rescue IDs / job IDs onde fizer sentido.
+
+==================================================
+12. TESTES CLOUD
+==================================================
+
+Não fique limitado ao localhost.
+
+Validar a implantação cloud real:
+
+- API pública;
+- PostgreSQL;
+- Redis;
+- NATS;
+- workers;
+- Cloudinary;
+- push provider;
+- mobile usando API pública.
+
+Quando uma dependência externa não puder ser testada por falta de credencial, não invente sucesso.
+
+Documente exatamente:
+
+DEPENDÊNCIA
+STATUS
+MOTIVO
+O QUE FOI VALIDADO
+O QUE FALTA
+
+Mas continue auditando/corrigindo todo o restante.
+
+==================================================
+13. TESTE DE RECOVERY
+==================================================
+
+Criar cenários reais:
+
+1. criar rescue;
+2. gerar jobs;
+3. matar worker;
+4. reiniciar worker;
+5. verificar recuperação.
+
+Depois:
+
+1. criar rescue;
+2. matar API;
+3. reiniciar;
+4. verificar estado.
+
+Depois:
+
+1. criar job;
+2. interromper processamento;
+3. reiniciar;
+4. verificar retry/idempotência.
+
+Nenhum rescue crítico pode simplesmente desaparecer.
+
+==================================================
+14. CRITÉRIO DE CONCLUSÃO
+==================================================
+
+NÃO finalize dizendo apenas:
+
+"Auditado."
+"Parecem estar funcionando."
+"Os testes passaram."
+
+Quero uma tabela final:
+
+| Área | Encontrado | Corrigido | Testado | Cloud Real | Status |
+|------|------------|-----------|---------|------------|--------|
+| Push | ... | ... | ... | ... | ... |
+| App fechado | ... | ... | ... | ... | ... |
+| Rescue fanout | ... | ... | ... | ... | ... |
+| Workers | ... | ... | ... | ... | ... |
+| Recovery | ... | ... | ... | ... | ... |
+| PostgreSQL | ... | ... | ... | ... | ... |
+| Redis | ... | ... | ... | ... | ... |
+| NATS | ... | ... | ... | ... | ... |
+| Chat | ... | ... | ... | ... | ... |
+| Auth | ... | ... | ... | ... | ... |
+| Security | ... | ... | ... | ... | ... |
+| Mobile contract | ... | ... | ... | ... | ... |
+
+Para cada GAP encontrado:
+
+GAP
+CAUSA
+ARQUIVO(S)
+CORREÇÃO APLICADA
+TESTE CRIADO/EXECUTADO
+RESULTADO
+
+==================================================
+REGRA MAIS IMPORTANTE
+==================================================
+
+NÃO quero uma lista de problemas para eu corrigir depois.
+
+Você é responsável por fazer a investigação E aplicar as correções.
+
+Encontrou gap?
+-> entender
+-> corrigir
+-> testar
+-> validar
+-> procurar próximo gap.
+
+Repita esse ciclo até chegar ao máximo de cobertura possível.
+
+Priorize primeiro os fluxos que podem causar:
+
+1. perda de um alerta de resgate;
+2. não entrega de notificação;
+3. notificação duplicada;
+4. rescue incorretamente marcado como resolvido;
+5. perda de estado;
+6. falha após restart;
+7. falha silenciosa;
+8. problema de segurança;
+9. inconsistência mobile/backend.
+
+Não faça refatoração desnecessária.
+
+Preserve os contratos existentes quando possível.
+
+Toda alteração deve ter justificativa técnica e teste.
+
+OBJETIVO FINAL:
+
+Quero sair dessa tarefa não com "um relatório de auditoria", mas com o sistema efetivamente mais próximo de produção, com os gaps críticos encontrados DURANTE a auditoria já corrigidos e comprovados por testes.

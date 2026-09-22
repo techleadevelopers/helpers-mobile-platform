@@ -314,9 +314,15 @@ pub async fn trigger(
     .bind(post_id)
     .bind(reporter_user_id)
     .fetch_optional(&mut *tx)
-    .await? {
+    .await?
+    {
         tx.commit().await?;
-        return Ok((StatusCode::OK, Json(RescueResponse { rescue: row_to_rescue(existing) })));
+        return Ok((
+            StatusCode::OK,
+            Json(RescueResponse {
+                rescue: row_to_rescue(existing),
+            }),
+        ));
     }
     let updated = sqlx::query(
         r#"
@@ -349,29 +355,29 @@ pub async fn trigger(
         .execute(&mut *tx)
         .await?;
     }
+    let rescue_uuid = Uuid::parse_str(&rescue.id).map_err(|_| ApiError::Internal)?;
+    let fanout_state_id =
+        rescue_fanout::create_fanout_state_for_post_tx(&mut tx, post_id, Some(rescue_uuid)).await?;
     tx.commit().await?;
 
-    let rescue_uuid = Uuid::parse_str(&rescue.id).ok();
-    let _ = rescue_fanout::create_fanout_state_for_post(&state.db, post_id, rescue_uuid).await?;
-    if let Some(rescue_uuid) = rescue_uuid {
-        if let Err(error) = insert_rescue_event(
-            &state,
-            rescue_uuid,
-            post_id,
-            "rescue_started",
-            Some(reporter_user_id),
-            Some("Resgate iniciado pelo autor do caso"),
-            json!({
-                "lat": rescue.lat,
-                "lng": rescue.lng,
-                "accuracy": rescue.accuracy
-            }),
-        )
-        .await
-        {
-            tracing::warn!(?error, rescue_id = %rescue.id, "failed to persist rescue_started event");
-        }
+    if let Err(error) = insert_rescue_event(
+        &state,
+        rescue_uuid,
+        post_id,
+        "rescue_started",
+        Some(reporter_user_id),
+        Some("Resgate iniciado pelo autor do caso"),
+        json!({
+            "lat": rescue.lat,
+            "lng": rescue.lng,
+            "accuracy": rescue.accuracy
+        }),
+    )
+    .await
+    {
+        tracing::warn!(?error, rescue_id = %rescue.id, "failed to persist rescue_started event");
     }
+    rescue_fanout::wake_fanout_state(state.db.clone(), fanout_state_id);
     broadcast_rescue_event(&state, &rescue);
     Ok((StatusCode::CREATED, Json(RescueResponse { rescue })))
 }

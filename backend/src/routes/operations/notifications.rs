@@ -94,7 +94,7 @@ pub async fn list_notifications(
         SELECT id, title, body, read_at, kind, post_id, image_url, distance_km, critical,
                deeplink, dedupe_key, ttl_seconds, category, payload, created_at
         FROM notification_events
-        WHERE user_id = $1 OR user_id IS NULL
+        WHERE user_id = $1
         ORDER BY created_at DESC
         LIMIT 100
         "#,
@@ -213,7 +213,7 @@ pub async fn mark_as_read(
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| ApiError::Unauthorized)?;
     let notification_id = Uuid::parse_str(&id).map_err(|_| ApiError::NotFound)?;
     let result = sqlx::query(
-        "UPDATE notification_events SET read_at = now() WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)",
+        "UPDATE notification_events SET read_at = now() WHERE id = $1 AND user_id = $2",
     )
     .bind(notification_id)
     .bind(user_id)
@@ -234,7 +234,7 @@ pub async fn ack(
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| ApiError::Unauthorized)?;
     let notification_id = Uuid::parse_str(&id).map_err(|_| ApiError::NotFound)?;
     let result = sqlx::query(
-        "UPDATE notification_events SET acked_at = now() WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)",
+        "UPDATE notification_events SET acked_at = now() WHERE id = $1 AND user_id = $2",
     )
     .bind(notification_id)
     .bind(user_id)

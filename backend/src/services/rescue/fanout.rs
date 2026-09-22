@@ -1039,7 +1039,7 @@ async fn ranked_candidates(
     let lng_delta = longitude_delta_for_radius(lat, phase.radius_km);
     let rows = sqlx::query(
         r#"
-        SELECT
+        SELECT DISTINCT ON (ps.user_id)
           ps.user_id,
           ps.push_token,
           ps.platform,
@@ -1090,6 +1090,7 @@ async fn ranked_candidates(
             OR u.verified = true
             OR u.account_type IN ('ong', 'vet', 'admin')
           )
+        ORDER BY ps.user_id, ps.updated_at DESC
         "#,
     )
     .bind(ACTIVE_SUBSCRIPTION_MAX_AGE_MINUTES as i32)
